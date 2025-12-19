@@ -45,7 +45,8 @@ jobs:
           export RUNTIME_IMAGE=localhost:5000/gateway-controller
           export IMAGE_NAME=$RUNTIME_IMAGE:trivy
           make -C gateway/gateway-controller build-and-push-multiarch \
-          IMAGE_NAME=localhost:5000/gateway-controller:trivy
+          IMAGE_NAME=localhost:5000/gateway-controller
+          VERSION=trivy
 
       - name: Trivy scan from temporary local registry
         uses: aquasecurity/trivy-action@master
