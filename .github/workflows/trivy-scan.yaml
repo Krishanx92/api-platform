@@ -15,6 +15,7 @@ jobs:
       # 2. Build the Docker image from gateway/policy-engine
       - name: Build policy-engine Docker image
         run: |
+          cd gateway/policy-engine
           make build-and-push-multiarch
 
       # 3. Run Trivy vulnerability scanner on the built image
