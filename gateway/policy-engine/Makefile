@@ -107,7 +107,6 @@ build-and-push-multiarch1:
 		--build-context gateway-builder=../gateway-builder \
 		--build-context policy-engine=. \
 		--build-context policies=../policies \
-		--platform linux/amd64,linux/arm64 \
 		-t policy-engine:trivy \
 		--push \
 		.
