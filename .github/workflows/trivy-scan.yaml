@@ -16,14 +16,13 @@ jobs:
       - name: Build policy-engine Docker image
         run: |
           cd gateway/policy-engine
-          make build
-          make push
+          make build-and-push-multiarch1
 
       # 3. Run Trivy vulnerability scanner on the built image
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'policy-engine:latest'
+          image-ref: 'policy-engine:trivy'
           format: 'table'
           ignore-unfixed: true
           vuln-type: 'os,library'

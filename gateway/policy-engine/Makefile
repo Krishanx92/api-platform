@@ -99,6 +99,20 @@ build-and-push-multiarch:
 		.
 	@echo "Multi-arch image built and pushed: $(RUNTIME_TAG)"
 
+## build-and-push-multiarch: Build and push the Policy Engine Docker image for multiple architectures (amd64, arm64)
+build-and-push-multiarch1:
+	@echo "Building and pushing multi-arch Policy Engine image: $(RUNTIME_TAG)"
+	docker buildx build -f Dockerfile \
+		--build-context sdk=../../sdk \
+		--build-context gateway-builder=../gateway-builder \
+		--build-context policy-engine=. \
+		--build-context policies=../policies \
+		--platform linux/amd64,linux/arm64 \
+		-t policy-engine:trivy \
+		--push \
+		.
+	@echo "Multi-arch image built and pushed: $(RUNTIME_TAG)"
+
 ## run: Start the Policy Engine with docker-compose
 run:
 	@echo "Starting Policy Engine services..."
