@@ -7,98 +7,37 @@ on:
 jobs:
   scan-policy-engine:
     runs-on: ubuntu-latest
-    steps:
-      # 1. Checkout the repository
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      # 2. Build the Docker image from gateway/policy-engine
-      - name: Build policy-engine Docker image
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      # IMPORTANT: network=host lets buildkit reach localhost:5000
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Build & push to temporary local registry
         run: |
           cd gateway/policy-engine
-          make build-and-push-multiarch1
+          export RUNTIME_IMAGE=localhost:5000/policy-engine
+          export RUNTIME_TAG=$RUNTIME_IMAGE:trivy
+          make -C gateway/policy-engine build-and-push-multiarch \
+          RUNTIME_IMAGE=localhost:5000/policy-engine \
+          RUNTIME_TAG=localhost:5000/policy-engine:trivy
 
-      # 3. Run Trivy vulnerability scanner on the built image
-      - name: Run Trivy vulnerability scanner
+
+      - name: Trivy scan from temporary local registry
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'policy-engine:trivy'
+          image-ref: 'localhost:5000/policy-engine:trivy'
           format: 'table'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
-  scan-gateway-controller:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build gateway-controller image
-        run: |
-          docker build -t gateway-controller:trivy ./gateway/gateway-controller
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'gateway-controller:trivy'
-          format: 'table'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
-
-  scan-gateway-router:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build gateway-router image
-        run: |
-          docker build -t gateway-router:trivy ./gateway/router
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'gateway-router:trivy'
-          format: 'table'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
-
-  scan-gateway-operator:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build gateway-operator image
-        run: |
-          docker build -t gateway-operator:trivy ./kubernetes/gateway-operator
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'gateway-operator:trivy'
-          format: 'table'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
-
-  scan-gateway-builder:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Build gateway-builder image
-        run: |
-          docker build -t gateway-builder:trivy ./gateway/gateway-builder
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'gateway-builder:trivy'
-          format: 'table'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'LOW,MEDIUM,CRITICAL,HIGH'
