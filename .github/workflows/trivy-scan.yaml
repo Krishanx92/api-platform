@@ -26,7 +26,6 @@ jobs:
 
       - name: Build & push to temporary local registry
         run: |
-          cd gateway/policy-engine
           export RUNTIME_IMAGE=localhost:5000/policy-engine
           export RUNTIME_TAG=$RUNTIME_IMAGE:trivy
           make -C gateway/policy-engine build-and-push-multiarch \
