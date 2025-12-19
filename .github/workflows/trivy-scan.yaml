@@ -71,7 +71,7 @@ jobs:
       - name: Build & push to temporary local registry
         run: |
           make -C gateway/router build-and-push-multiarch \
-          IMAGE_NAME=localhost:5000/router:trivy
+          IMAGE_NAME=localhost:5000/router
           VERSION=trivy
 
       - name: Trivy scan from temporary local registry
