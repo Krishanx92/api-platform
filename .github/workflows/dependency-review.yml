@@ -1,0 +1,45 @@
+name: Require review for go.mod changes
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: ["**"]
+
+jobs:
+  detect-go-mod-changes:
+    name: Detect go.mod/go.sum changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for go.mod/go.sum changes in PR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Base: $BASE_SHA"
+          echo "Head: $HEAD_SHA"
+
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          MOD_CHANGES="$(echo "$CHANGED_FILES" | grep -E '(^|/)(go\.mod|go\.sum)$' || true)"
+
+          if [[ -n "$MOD_CHANGES" ]]; then
+            echo ""
+            echo "❌ This PR modifies go.mod/go.sum files (requires special review):"
+            echo "$MOD_CHANGES"
+            echo ""
+            echo "Please ensure module changes are reviewed before merging."
+            exit 1
+          fi
+
+          echo "✅ No go.mod/go.sum changes detected."
