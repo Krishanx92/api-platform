@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/envoyproxy/go-control-plane v0.13.5-0.20251024222203-75eaa193e329
 	github.com/envoyproxy/go-control-plane/envoy v1.36.0
-	github.com/getkin/kin-openapi v0.133.0
+	github.com/getkin/kin-openapi v0.134.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
