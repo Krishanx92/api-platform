@@ -176,6 +176,46 @@ jobs:
           print("Generated: router/controller/policy memory graphs")
           EOF
 
+      - name: Plot TPS over time from JTL
+        run: |
+          python3 << 'EOF'
+          import csv
+          from collections import defaultdict
+          import matplotlib.pyplot as plt
+
+          JTL = "results.jtl"   # <-- change if your JTL name is different
+          BUCKET_SEC = 1        # 1-second TPS buckets
+
+          # bucket -> count
+          buckets = defaultdict(int)
+
+          with open(JTL, newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+              # JMeter 'timeStamp' is epoch millis
+              ts_ms = int(row["timeStamp"])
+              ts_s = ts_ms // 1000
+              bucket = (ts_s // BUCKET_SEC) * BUCKET_SEC
+              buckets[bucket] += 1
+
+          if not buckets:
+            raise SystemExit("No samples found in JTL")
+
+          times = sorted(buckets.keys())
+          t0 = times[0]
+          x = [t - t0 for t in times]                 # seconds since start
+          y = [buckets[t] / BUCKET_SEC for t in times]  # TPS
+
+          plt.figure(figsize=(10,4))
+          plt.plot(x, y)
+          plt.xlabel("Time since start (s)")
+          plt.ylabel("TPS")
+          plt.title(f"TPS over time (bucket={BUCKET_SEC}s)")
+          plt.grid(True)
+          plt.tight_layout()
+          plt.savefig("tps_over_time.png")
+          print("Saved tps_over_time.png")
+          EOF
       - name: Upload performance graphs
         uses: actions/upload-artifact@v4
         with:
@@ -184,6 +224,7 @@ jobs:
             router_memory_vs_api_count.png
             controller_memory_vs_api_count.png
             policy_memory_vs_api_count.png
+            path: tps_over_time.png
 
 
       - name: Upload artifacts (CSV + JTL + logs)
