@@ -53,7 +53,7 @@ spec:
   context: ${api_context}
   upstream:
     main:
-      url: http://netty:8085
+      url: http://netty:8688
   operations:
     - method: GET
       path: /{country_code}/{city}
