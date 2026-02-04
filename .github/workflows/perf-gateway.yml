@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
 
           COMPOSE_FILE="gateway/docker-compose.yaml"
-          SVC="gateway-controller"     # change if your service name is different
+          SVC="gateway-gateway-controller-1"     # change if your service name is different
           PORT="9090"
           URL="http://127.0.0.1:${PORT}/health"
 
