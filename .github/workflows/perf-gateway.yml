@@ -77,19 +77,23 @@ jobs:
           gateway/perf/create_apis_and_capture_stats.sh
           tail -n 5 stats.csv || true
 
+      - name: Verify JMX exists
+        run: |
+          ls -la gateway/perf
+          test -f gateway/perf/weather_perf_random_50.jmx
+          echo "✅ JMX file exists"
       - name: Run JMeter TPS test (random across 50 APIs)
         env:
           # Increase file descriptors for high concurrency (best-effort on hosted runners)
           # On hosted runners this may not go very high; for real perf use self-hosted runner.
           JMETER_HEAP: "-Xms1g -Xmx1g"
         run: |
-          chmod +x gateway/perf/weather_perf_random_50.jmx
           ulimit -n 100000 || true
           export HEAP="${JMETER_HEAP}"
 
           # Non-GUI run
           jmeter -n \
-            -t perf/weather_perf_random_50.jmx \
+            -t gateway/perf/weather_perf_random_50.jmx \
             -l perf.jtl \
             -j jmeter.log
 

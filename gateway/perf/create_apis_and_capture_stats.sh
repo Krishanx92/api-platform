@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ---------------- containers ----------------
-ROUTER_CTN="gateway-v050-router-1"
-CONTROLLER_CTN="gateway-v050-gateway-controller-1"
-POLICY_CTN="gateway-v050-policy-engine-1"
+ROUTER_CTN="gateway-router-1"
+CONTROLLER_CTN="gateway-gateway-controller-1"
+POLICY_CTN="gateway-policy-engine-1"
 
 # ---------------- API endpoint ----------------
 API_MGR_URL="http://localhost:9090/apis"
