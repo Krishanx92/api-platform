@@ -26,7 +26,6 @@ jobs:
 
       - name: Start Gateway (docker compose)
         run: |
-          cd ../../gateway
           docker compose up -d
           docker ps
 
