@@ -138,27 +138,42 @@ jobs:
           import csv
           import matplotlib.pyplot as plt
 
-          api, router_mem = [], []
+          api = []
+          router_mem = []
+          controller_mem = []
+          policy_mem = []
 
-          def mib(v): return float(v.replace("MiB",""))
+          def mib(v: str) -> float:
+              return float(v.replace("MiB", "").strip())
 
-          with open("stats.csv") as f:
-            sample = f.read(1024)
-            delim = "\t" if "\t" in sample else ","
-            f.seek(0)
-            r = csv.DictReader(f, delimiter=delim)
-            for row in r:
-              api.append(int(row["api_count"]))
-              router_mem.append(mib(row["router_mem_used"]))
+          # auto-detect delimiter: tab vs comma
+          with open("stats.csv", "r", newline="") as f:
+              sample = f.read(1024)
+              delim = "\t" if "\t" in sample else ","
+              f.seek(0)
+              reader = csv.DictReader(f, delimiter=delim)
+              for r in reader:
+                  api.append(int(r["api_count"]))
+                  router_mem.append(mib(r["router_mem_used"]))
+                  controller_mem.append(mib(r["controller_mem_used"]))
+                  policy_mem.append(mib(r["policy_mem_used"]))
 
-          plt.figure(figsize=(8,4))
-          plt.plot(api, router_mem, marker="o")
-          plt.xlabel("API Count")
-          plt.ylabel("Router Memory (MiB)")
-          plt.title("Router Memory vs API Count")
-          plt.grid(True)
-          plt.tight_layout()
-          plt.savefig("router_memory_vs_api_count.png")
+          def plot(x, y, title, out):
+              plt.figure(figsize=(9,4))
+              plt.plot(x, y, marker="o")
+              plt.xlabel("API Count")
+              plt.ylabel("Memory (MiB)")
+              plt.title(title)
+              plt.grid(True)
+              plt.tight_layout()
+              plt.savefig(out)
+              plt.close()
+
+          plot(api, router_mem, "Router Memory vs API Count", "router_memory_vs_api_count.png")
+          plot(api, controller_mem, "Controller Memory vs API Count", "controller_memory_vs_api_count.png")
+          plot(api, policy_mem, "Policy Engine Memory vs API Count", "policy_memory_vs_api_count.png")
+
+          print("Generated: router/controller/policy memory graphs")
           EOF
 
       - name: Upload performance graphs
@@ -169,6 +184,7 @@ jobs:
             router_memory_vs_api_count.png
             controller_memory_vs_api_count.png
             policy_memory_vs_api_count.png
+
 
       - name: Upload artifacts (CSV + JTL + logs)
         if: always()
