@@ -177,7 +177,7 @@ jobs:
 
           # ---------- TPS over time ----------
           buckets = defaultdict(int)
-          with open("results.jtl") as f:
+          with open("perf.jtl") as f:
             r = csv.DictReader(f)
             for row in r:
               ts = int(row["timeStamp"]) // 1000
