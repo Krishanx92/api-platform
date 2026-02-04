@@ -198,6 +198,13 @@ jobs:
           plt.savefig("docs/performance/tps_over_time.png")
           plt.close()
           EOF
+
+      - name: Cleanup JMeter artifacts
+        run: |
+          rm -rf apache-jmeter-*
+          rm -f *.jtl jmeter.log
+          git status --short || true
+
       - name: Commit performance docs
         run: |
           git config user.name "github-actions"
@@ -206,7 +213,7 @@ jobs:
           git add docs/performance
           git commit -m "Add gateway performance graphs" || echo "Nothing to commit"
 
-      - name: Create PR
+      - name: Create PR (docs only)
         uses: peter-evans/create-pull-request@v6
         with:
           title: "Add gateway performance results"
@@ -215,7 +222,8 @@ jobs:
             - Memory vs API count
             - TPS over time
           branch: perf-results
-
+          add-paths: |
+            docs/performance/**
 
       - name: Upload performance graphs
         uses: actions/upload-artifact@v4
