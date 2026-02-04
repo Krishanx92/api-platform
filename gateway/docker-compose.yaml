@@ -46,7 +46,7 @@ services:
       - gateway-network
 
   netty: 
-    image: renukafernando/netty-http-echo-service:0.4.6-arm
+    image: renukafernando/netty-http-echo-service:0.4.6
     ports:
       - "8085:8688"
     networks:
