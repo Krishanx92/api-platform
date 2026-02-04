@@ -10,7 +10,7 @@ POLICY_CTN="gateway-v050-policy-engine-1"
 API_MGR_URL="http://localhost:9090/apis"
 
 # ---------------- params ----------------
-TOTAL="${1:-1}"
+TOTAL="${1:-50}"
 OUT="${2:-stats.csv}"
 
 # ---------------- CSV header ----------------
