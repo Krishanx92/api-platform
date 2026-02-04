@@ -123,6 +123,78 @@ jobs:
           docker stats --no-stream || true
           docker compose logs --no-color | tail -n 200 || true
 
+      - name: Generate performance graphs
+        run: |
+          python3 << 'EOF'
+          import csv
+          import matplotlib.pyplot as plt
+
+          api = []
+          router_mem = []
+          controller_mem = []
+          policy_mem = []
+
+          def mib(v):
+              return float(v.replace("MiB", ""))
+
+          # Detect delimiter automatically
+          with open("stats.csv") as f:
+              sample = f.read(1024)
+              delim = "\t" if "\t" in sample else ","
+              f.seek(0)
+
+              reader = csv.DictReader(f, delimiter=delim)
+              for r in reader:
+                  api.append(int(r["api_count"]))
+                  router_mem.append(mib(r["router_mem_used"]))
+                  controller_mem.append(mib(r["controller_mem_used"]))
+                  policy_mem.append(mib(r["policy_mem_used"]))
+
+          # -------- Router memory graph --------
+          plt.figure(figsize=(8,4))
+          plt.plot(api, router_mem, marker="o")
+          plt.xlabel("API Count")
+          plt.ylabel("Memory (MiB)")
+          plt.title("Router Memory vs API Count")
+          plt.grid(True)
+          plt.tight_layout()
+          plt.savefig("router_memory_vs_api_count.png")
+          plt.close()
+
+          # -------- Controller memory graph --------
+          plt.figure(figsize=(8,4))
+          plt.plot(api, controller_mem, marker="o", color="orange")
+          plt.xlabel("API Count")
+          plt.ylabel("Memory (MiB)")
+          plt.title("Controller Memory vs API Count")
+          plt.grid(True)
+          plt.tight_layout()
+          plt.savefig("controller_memory_vs_api_count.png")
+          plt.close()
+
+          # -------- Policy engine memory graph --------
+          plt.figure(figsize=(8,4))
+          plt.plot(api, policy_mem, marker="o", color="green")
+          plt.xlabel("API Count")
+          plt.ylabel("Memory (MiB)")
+          plt.title("Policy Engine Memory vs API Count")
+          plt.grid(True)
+          plt.tight_layout()
+          plt.savefig("policy_memory_vs_api_count.png")
+          plt.close()
+
+          print("Graphs generated successfully")
+          EOF
+
+      - name: Upload performance graphs
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-scale-performance-graphs
+          path: |
+            router_memory_vs_api_count.png
+            controller_memory_vs_api_count.png
+            policy_memory_vs_api_count.png
+
       - name: Upload artifacts (CSV + JTL + logs)
         if: always()
         uses: actions/upload-artifact@v4
