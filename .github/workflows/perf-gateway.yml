@@ -134,88 +134,89 @@ jobs:
 
       - name: Generate performance graphs
         run: |
+          mkdir -p docs/performance
+
           python3 << 'EOF'
           import csv
           import matplotlib.pyplot as plt
+          from collections import defaultdict
 
-          api = []
-          router_mem = []
-          controller_mem = []
-          policy_mem = []
+          # ---------- Memory graphs ----------
+          api, router_mem, controller_mem, policy_mem = [], [], [], []
 
-          def mib(v: str) -> float:
-              return float(v.replace("MiB", "").strip())
+          def mib(v): return float(v.replace("MiB","").strip())
 
-          # auto-detect delimiter: tab vs comma
-          with open("stats.csv", "r", newline="") as f:
-              sample = f.read(1024)
-              delim = "\t" if "\t" in sample else ","
-              f.seek(0)
-              reader = csv.DictReader(f, delimiter=delim)
-              for r in reader:
-                  api.append(int(r["api_count"]))
-                  router_mem.append(mib(r["router_mem_used"]))
-                  controller_mem.append(mib(r["controller_mem_used"]))
-                  policy_mem.append(mib(r["policy_mem_used"]))
+          with open("stats.csv") as f:
+            sample = f.read(1024)
+            delim = "\t" if "\t" in sample else ","
+            f.seek(0)
+            r = csv.DictReader(f, delimiter=delim)
+            for row in r:
+              api.append(int(row["api_count"]))
+              router_mem.append(mib(row["router_mem_used"]))
+              controller_mem.append(mib(row["controller_mem_used"]))
+              policy_mem.append(mib(row["policy_mem_used"]))
 
           def plot(x, y, title, out):
-              plt.figure(figsize=(9,4))
-              plt.plot(x, y, marker="o")
-              plt.xlabel("API Count")
-              plt.ylabel("Memory (MiB)")
-              plt.title(title)
-              plt.grid(True)
-              plt.tight_layout()
-              plt.savefig(out)
-              plt.close()
+            plt.figure(figsize=(9,4))
+            plt.plot(x, y, marker="o")
+            plt.xlabel("API Count")
+            plt.ylabel("Memory (MiB)")
+            plt.title(title)
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(out)
+            plt.close()
 
-          plot(api, router_mem, "Router Memory vs API Count", "router_memory_vs_api_count.png")
-          plot(api, controller_mem, "Controller Memory vs API Count", "controller_memory_vs_api_count.png")
-          plot(api, policy_mem, "Policy Engine Memory vs API Count", "policy_memory_vs_api_count.png")
+          plot(api, router_mem, "Router Memory vs API Count",
+              "docs/performance/router_memory_vs_api_count.png")
+          plot(api, controller_mem, "Controller Memory vs API Count",
+              "docs/performance/controller_memory_vs_api_count.png")
+          plot(api, policy_mem, "Policy Engine Memory vs API Count",
+              "docs/performance/policy_memory_vs_api_count.png")
 
-          print("Generated: router/controller/policy memory graphs")
-          EOF
-
-      - name: Plot TPS over time from JTL
-        run: |
-          python3 << 'EOF'
-          import csv
-          from collections import defaultdict
-          import matplotlib.pyplot as plt
-
-          JTL = "results.jtl"   # <-- change if your JTL name is different
-          BUCKET_SEC = 1        # 1-second TPS buckets
-
-          # bucket -> count
+          # ---------- TPS over time ----------
           buckets = defaultdict(int)
+          with open("results.jtl") as f:
+            r = csv.DictReader(f)
+            for row in r:
+              ts = int(row["timeStamp"]) // 1000
+              buckets[ts] += 1
 
-          with open(JTL, newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-              # JMeter 'timeStamp' is epoch millis
-              ts_ms = int(row["timeStamp"])
-              ts_s = ts_ms // 1000
-              bucket = (ts_s // BUCKET_SEC) * BUCKET_SEC
-              buckets[bucket] += 1
-
-          if not buckets:
-            raise SystemExit("No samples found in JTL")
-
-          times = sorted(buckets.keys())
+          times = sorted(buckets)
           t0 = times[0]
-          x = [t - t0 for t in times]                 # seconds since start
-          y = [buckets[t] / BUCKET_SEC for t in times]  # TPS
+          x = [t - t0 for t in times]
+          y = [buckets[t] for t in times]
 
           plt.figure(figsize=(10,4))
           plt.plot(x, y)
           plt.xlabel("Time since start (s)")
           plt.ylabel("TPS")
-          plt.title(f"TPS over time (bucket={BUCKET_SEC}s)")
+          plt.title("TPS over Time")
           plt.grid(True)
           plt.tight_layout()
-          plt.savefig("tps_over_time.png")
-          print("Saved tps_over_time.png")
+          plt.savefig("docs/performance/tps_over_time.png")
+          plt.close()
           EOF
+      - name: Commit performance docs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add docs/performance
+          git commit -m "Add gateway performance graphs" || echo "Nothing to commit"
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "Add gateway performance results"
+          body: |
+            This PR adds automatically generated performance graphs:
+            - Memory vs API count
+            - TPS over time
+          branch: perf-results
+
+
       - name: Upload performance graphs
         uses: actions/upload-artifact@v4
         with:
