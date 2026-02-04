@@ -24,6 +24,13 @@ jobs:
           tar -xzf apache-jmeter.tgz
           echo "$PWD/apache-jmeter-${JMETER_VER}/bin" >> $GITHUB_PATH
 
+      - name: Verify config.toml is a file
+        run: |
+          set -e
+          ls -la gateway/configs
+          test -f gateway/configs/config.toml
+          echo "✅ gateway/configs/config.toml exists and is a file"
+
       - name: Start gateway stack
         run: |
           cd gateway
