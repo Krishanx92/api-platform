@@ -72,6 +72,7 @@ jobs:
 
       - name: Create 50 APIs + collect docker stats CSV
         run: |
+          cd gateway
           chmod +x perf/create_apis_stats.sh
           # Create 50 APIs and write stats.csv
           perf/create_apis_stats.sh 50 stats.csv
