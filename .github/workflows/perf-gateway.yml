@@ -70,18 +70,12 @@ jobs:
           docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$SVC" || true
           exit 1
 
-      - name: Find create_apis_stats.sh
-        run: |
-          pwd
-          ls -la
-          find . -maxdepth 6 -type f -name "create_apis_stats.sh" -o -name "*apis*stats*.sh"
-
       - name: Create 50 APIs + collect docker stats CSV
         run: |
           cd gateway
-          chmod +x perf/create_apis_and_capture_ stats.sh
+          chmod +x gateway/perf/create_apis_and_capture_stats.sh
           # Create 50 APIs and write stats.csv
-          perf/create_apis_and_capture_ stats.sh 50 stats.csv
+          gateway/perf/create_apis_and_capture_stats.sh stats.csv
           tail -n 5 stats.csv || true
 
       - name: Run JMeter TPS test (random across 50 APIs)
