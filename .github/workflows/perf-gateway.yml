@@ -24,10 +24,13 @@ jobs:
           tar -xzf apache-jmeter.tgz
           echo "$PWD/apache-jmeter-${JMETER_VER}/bin" >> $GITHUB_PATH
 
-      - name: Start Gateway (docker compose)
+      - name: Start gateway stack
         run: |
-          docker compose -f gateway/docker-compose.yaml up -d
-          docker ps
+          cd gateway
+          ls -la
+          docker compose -f docker-compose.yaml up -d
+          docker compose ps
+
 
       - name: Wait for gateway-controller /health
         run: |
