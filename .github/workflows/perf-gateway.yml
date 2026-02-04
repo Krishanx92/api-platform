@@ -1,0 +1,97 @@
+name: Gateway Perf (Create 50 APIs + TPS)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 20 * * *"   # daily 20:00 UTC (adjust)
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools (JMeter + jq)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          # Install JMeter
+          JMETER_VER=5.6.3
+          curl -L -o apache-jmeter.tgz "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VER}.tgz"
+          tar -xzf apache-jmeter.tgz
+          echo "$PWD/apache-jmeter-${JMETER_VER}/bin" >> $GITHUB_PATH
+
+      - name: Start Gateway (docker compose)
+        run: |
+          cd ../
+          docker compose up -d
+          docker ps
+
+      - name: Wait for Controller API to be ready
+        run: |
+          # waits until /apis responds (change if you have a better health endpoint)
+          for i in $(seq 1 60); do
+            if curl -fsS "http://localhost:9090/apis" >/dev/null 2>&1; then
+              echo "Controller is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Controller did not become ready"
+          docker compose logs --no-color | tail -n 200
+          exit 1
+
+      - name: Create 50 APIs + collect docker stats CSV
+        run: |
+          chmod +x perf/create_apis_stats.sh
+          # Create 50 APIs and write stats.csv
+          perf/create_apis_stats.sh 50 stats.csv
+          tail -n 5 stats.csv || true
+
+      - name: Run JMeter TPS test (random across 50 APIs)
+        env:
+          # Increase file descriptors for high concurrency (best-effort on hosted runners)
+          # On hosted runners this may not go very high; for real perf use self-hosted runner.
+          JMETER_HEAP: "-Xms1g -Xmx1g"
+        run: |
+          ulimit -n 100000 || true
+          export HEAP="${JMETER_HEAP}"
+
+          # Non-GUI run
+          jmeter -n \
+            -t perf/weather_perf_random_50.jmx \
+            -l perf.jtl \
+            -j jmeter.log
+
+          # Optional: quick TPS summary from JTL (prints to job logs)
+          # This assumes standard JTL CSV with timeStamp,elapsed,...,success in column 8.
+          awk -F',' '
+            NR==1{next}
+            {count++; if($8=="false")err++; sum+=$2; ts=$1;
+             if(min==0||ts<min)min=ts; if(ts>max)max=ts}
+            END{
+              dur=(max-min)/1000.0;
+              tps=(dur>0)?count/dur:0;
+              avg=(count>0)?sum/count:0;
+              errpct=(count>0)?(err*100.0/count):0;
+              printf "Requests=%d Duration=%.1fs TPS=%.2f AvgMs=%.1f ErrPct=%.2f\n", count, dur, tps, avg, errpct
+            }' perf.jtl || true
+
+      - name: Docker stats snapshot
+        if: always()
+        run: |
+          docker stats --no-stream || true
+          docker compose logs --no-color | tail -n 200 || true
+
+      - name: Upload artifacts (CSV + JTL + logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-results
+          path: |
+            stats.csv
+            perf.jtl
+            jmeter.log
