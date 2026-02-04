@@ -79,9 +79,9 @@ jobs:
       - name: Create 50 APIs + collect docker stats CSV
         run: |
           cd gateway
-          chmod +x gateway/perf/create_apis_stats.sh
+          chmod +x perf/create_apis_and_capture_ stats.sh
           # Create 50 APIs and write stats.csv
-          gateway/perf/create_apis_stats.sh 50 stats.csv
+          perf/create_apis_and_capture_ stats.sh 50 stats.csv
           tail -n 5 stats.csv || true
 
       - name: Run JMeter TPS test (random across 50 APIs)
