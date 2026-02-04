@@ -53,7 +53,7 @@ spec:
   context: ${api_context}
   upstream:
     main:
-      url: http://host.docker.internal:8085
+      url: http://127.0.0.1:8085
   operations:
     - method: GET
       path: /{country_code}/{city}
