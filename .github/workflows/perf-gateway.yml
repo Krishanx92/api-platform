@@ -70,6 +70,12 @@ jobs:
           docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$SVC" || true
           exit 1
 
+      - name: Debug netty port
+        run: |
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+          docker compose -f gateway/docker-compose.yaml port netty-backend 8085 || true
+          curl -v http://127.0.0.1:8085/ || true
+
       - name: Create 50 APIs + collect docker stats CSV
         run: |
           chmod +x gateway/perf/create_apis_and_capture_stats.sh
