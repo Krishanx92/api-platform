@@ -29,27 +29,65 @@ jobs:
           docker compose -f gateway/docker-compose.yaml up -d
           docker ps
 
-      - name: Wait for Controller health endpoint
+      - name: Wait for controller /health
         run: |
-          set -e
+          set -euo pipefail
 
-          echo "Waiting for http://localhost:9090/health ..."
-          for i in $(seq 1 60); do
-            code="$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/health || true)"
+          COMPOSE_FILE="gateway/docker-compose.yaml"
+          SVC="gateway-controller"     # change if your service name is different
+          PORT="9090"
+          URL="http://127.0.0.1:${PORT}/health"
 
+          echo "== compose ps =="
+          docker compose -f "$COMPOSE_FILE" ps || true
+
+          echo "Waiting for $URL ..."
+          for i in $(seq 1 90); do
+            # 1) service container must exist
+            cid="$(docker compose -f "$COMPOSE_FILE" ps -q "$SVC" || true)"
+            if [[ -z "${cid}" ]]; then
+              echo "Attempt $i: service '$SVC' container not found yet"
+              sleep 2
+              continue
+            fi
+
+            # 2) container must be running
+            running="$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null || echo false)"
+            if [[ "$running" != "true" ]]; then
+              echo "Attempt $i: container not running yet"
+              docker compose -f "$COMPOSE_FILE" ps || true
+              sleep 2
+              continue
+            fi
+
+            # 3) port must be published
+            hostport="$(docker compose -f "$COMPOSE_FILE" port "$SVC" "$PORT" 2>/dev/null | tail -n1 || true)"
+            if [[ -z "$hostport" ]]; then
+              echo "Attempt $i: port $PORT not published for service '$SVC' (no host mapping)"
+              echo "Tip: ensure '$SVC' has ports: - \"9090:9090\" in compose"
+              sleep 2
+              continue
+            fi
+
+            # 4) curl health
+            code="$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)"
             if [[ "$code" == "200" ]]; then
-              echo "✅ Controller is healthy"
+              echo "✅ Healthy!"
+              curl -s "$URL" || true
               exit 0
             fi
 
-            echo "Attempt $i/60: health not ready (HTTP $code)"
+            echo "Attempt $i: not ready (HTTP $code)"
             sleep 2
           done
 
-          echo "❌ Controller did not become healthy in time"
-          docker ps || true
-          docker compose -f gateway/docker-compose.yaml logs --no-color | tail -n 200 || true
+          echo "❌ Controller did not become healthy"
+          echo "== compose ps =="
+          docker compose -f "$COMPOSE_FILE" ps || true
+          echo "== last logs =="
+          docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$SVC" || true
           exit 1
+
 
 
       - name: Create 50 APIs + collect docker stats CSV
