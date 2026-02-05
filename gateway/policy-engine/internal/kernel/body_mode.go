@@ -40,11 +40,15 @@ const (
 // apiMetadata is optional and can contain API-level information for policies that need it
 func (k *Kernel) BuildPolicyChain(routeKey string, policySpecs []policy.PolicySpec, reg *registry.PolicyRegistry, apiMetadata policy.PolicyMetadata) (*registry.PolicyChain, error) {
 	chain := &registry.PolicyChain{
-		Policies:             make([]policy.Policy, 0),
-		PolicySpecs:          make([]policy.PolicySpec, 0),
-		RequiresRequestBody:  false,
-		RequiresResponseBody: false,
+		Policies:               make([]policy.Policy, 0),
+		PolicySpecs:            make([]policy.PolicySpec, 0),
+		RequiresRequestBody:    false,
+		RequiresResponseBody:   false,
+		HasExecutionConditions: false,
 	}
+
+	// Track whether any policy has execution conditions
+	hasExecutionConditions := false
 
 	// Build policy list and compute body requirements
 	for _, spec := range policySpecs {
@@ -71,6 +75,11 @@ func (k *Kernel) BuildPolicyChain(routeKey string, policySpecs []policy.PolicySp
 		chain.Policies = append(chain.Policies, impl)
 		chain.PolicySpecs = append(chain.PolicySpecs, spec)
 
+		// Check if this policy has an execution condition
+		if spec.ExecutionCondition != nil && *spec.ExecutionCondition != "" {
+			hasExecutionConditions = true
+		}
+
 		// Get policy mode and update body requirements
 		mode := impl.Mode()
 
@@ -84,6 +93,9 @@ func (k *Kernel) BuildPolicyChain(routeKey string, policySpecs []policy.PolicySp
 			chain.RequiresResponseBody = true
 		}
 	}
+
+	// Set whether any policy has execution conditions
+	chain.HasExecutionConditions = hasExecutionConditions
 
 	return chain, nil
 }
