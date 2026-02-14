@@ -70,6 +70,24 @@ jobs:
           docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$SVC" || true
           exit 1
 
+      - name: Confirm policy-engine binary arch (file /tmp/policy-engine)
+        run: |
+          set -euo pipefail
+          COMPOSE_FILE="gateway/docker-compose.yaml"
+
+          # Get the container id for the policy-engine service (adjust service name if different)
+          CID="$(docker compose -f "$COMPOSE_FILE" ps -q policy-engine)"
+          if [[ -z "${CID}" ]]; then
+            echo "❌ Could not find container for service 'policy-engine'. Available services:"
+            docker compose -f "$COMPOSE_FILE" config --services
+            exit 1
+          fi
+
+          # Copy binary out of the container and inspect
+          docker cp "${CID}:/app/policy-engine" /tmp/policy-engine
+          ls -la /tmp/policy-engine
+          file /tmp/policy-engine
+
       - name: Debug netty port
         run: |
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
