@@ -26,6 +26,12 @@
             <stringProp name="Argument.name">apiIdFile</stringProp>
             <stringProp name="Argument.value">api_ids.csv</stringProp>
           </elementProp>
+
+          <!-- Optional: make duration configurable from CLI, default 40 -->
+          <elementProp name="duration" elementType="Argument">
+            <stringProp name="Argument.name">duration</stringProp>
+            <stringProp name="Argument.value">${__P(duration,40)}</stringProp>
+          </elementProp>
         </collectionProp>
       </elementProp>
     </TestPlan>
@@ -35,10 +41,17 @@
         <stringProp name="ThreadGroup.num_threads">200</stringProp>
         <stringProp name="ThreadGroup.ramp_time">10</stringProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+
+        <!-- Run until scheduler stops it -->
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
-          <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">10</stringProp>
+          <boolProp name="LoopController.continue_forever">true</boolProp>
+          <stringProp name="LoopController.loops">-1</stringProp>
         </elementProp>
+
+        <!-- Force minimum run time -->
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${duration}</stringProp>
+        <stringProp name="ThreadGroup.delay">0</stringProp>
       </ThreadGroup>
 
       <hashTree>
@@ -73,7 +86,7 @@
         </HTTPSamplerProxy>
         <hashTree/>
 
-        <!-- Keep listeners minimal for perf (works in GUI too) -->
+        <!-- Keep listeners minimal for perf (disable in CI/non-GUI if possible) -->
         <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true"/>
         <hashTree/>
       </hashTree>
