@@ -76,9 +76,9 @@ jobs:
           COMPOSE_FILE="gateway/docker-compose.yaml"
 
           # Get the container id for the policy-engine service (adjust service name if different)
-          CID="$(docker compose -f "$COMPOSE_FILE" ps -q policy-engine)"
+          CID="$(docker compose -f "$COMPOSE_FILE" ps -q gateway-runtime)"
           if [[ -z "${CID}" ]]; then
-            echo "❌ Could not find container for service 'policy-engine'. Available services:"
+            echo "❌ Could not find container for service 'gateway-runtime'. Available services:"
             docker compose -f "$COMPOSE_FILE" config --services
             exit 1
           fi
