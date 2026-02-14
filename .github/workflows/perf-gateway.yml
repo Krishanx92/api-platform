@@ -35,7 +35,7 @@ jobs:
         run: |
           cd gateway
           ls -la
-          docker compose -f docker-compose-perf.yaml up -d
+          docker compose -f docker-compose.yaml up -d
           docker compose ps
 
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMPOSE_FILE="gateway/docker-compose-perf.yaml"
+          COMPOSE_FILE="gateway/docker-compose.yaml"
           SVC="gateway-controller"
           URL="http://127.0.0.1:9090/health"
 
@@ -73,7 +73,7 @@ jobs:
       - name: Debug netty port
         run: |
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          docker compose -f gateway/docker-compose-perf.yaml port netty 8085 || true
+          docker compose -f gateway/docker-compose.yaml port netty 8085 || true
           curl -v http://127.0.0.1:8085/ || true
 
       - name: Create 50 APIs + collect docker stats CSV
