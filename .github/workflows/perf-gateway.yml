@@ -7,6 +7,9 @@ on:
 
 jobs:
   perf:
+    # ubuntu-latest has 2 vCPUs, use larger runner for better TPS
+    # Options: ubuntu-latest-4-cores, ubuntu-latest-8-cores (requires GitHub Team/Enterprise)
+    # For self-hosted: runs-on: self-hosted
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -14,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install tools (JMeter + jq)
+      - name: Install tools (JMeter + jq + hey)
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
@@ -23,6 +26,24 @@ jobs:
           curl -L -o apache-jmeter.tgz "https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VER}.tgz"
           tar -xzf apache-jmeter.tgz
           echo "$PWD/apache-jmeter-${JMETER_VER}/bin" >> $GITHUB_PATH
+          # Install hey (lightweight HTTP load generator - much less overhead than JMeter)
+          curl -L -o hey https://hey-release.s3.us-east-2.amazonaws.com/hey_linux_amd64
+          chmod +x hey
+          sudo mv hey /usr/local/bin/
+
+      - name: Tune kernel for performance
+        run: |
+          # Increase file descriptors
+          sudo sysctl -w fs.file-max=2097152
+          # Increase network buffers
+          sudo sysctl -w net.core.somaxconn=65535
+          sudo sysctl -w net.core.netdev_max_backlog=65535
+          sudo sysctl -w net.ipv4.tcp_max_syn_backlog=65535
+          # Reuse sockets quickly
+          sudo sysctl -w net.ipv4.tcp_tw_reuse=1
+          sudo sysctl -w net.ipv4.tcp_fin_timeout=15
+          # Larger connection tracking
+          sudo sysctl -w net.netfilter.nf_conntrack_max=1048576 || true
 
       - name: Verify config.toml is a file
         run: |
@@ -35,7 +56,7 @@ jobs:
         run: |
           cd gateway
           ls -la
-          docker compose -f docker-compose.yaml up -d
+          docker compose -f docker-compose-perf.yaml up -d
           docker compose ps
 
 
@@ -43,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMPOSE_FILE="gateway/docker-compose.yaml"
+          COMPOSE_FILE="gateway/docker-compose-perf.yaml"
           SVC="gateway-controller"
           URL="http://127.0.0.1:9090/health"
 
@@ -73,7 +94,7 @@ jobs:
       - name: Debug netty port
         run: |
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          docker compose -f gateway/docker-compose.yaml port netty 8085 || true
+          docker compose -f gateway/docker-compose-perf.yaml port netty 8085 || true
           curl -v http://127.0.0.1:8085/ || true
 
       - name: Create 50 APIs + collect docker stats CSV
@@ -88,11 +109,23 @@ jobs:
           ls -la gateway/perf
           test -f gateway/perf/weather_perf_random_50.jmx
           echo "✅ JMX file exists"
+
+      - name: Warmup gateway (hey - 10s light load)
+        run: |
+          echo "=== Warming up gateway ==="
+          hey -z 10s -c 50 -q 50 http://127.0.0.1:8080/weather/v1.0/1/us/seattle || true
+          sleep 2
+
+      - name: Run load test with hey (lightweight)
+        run: |
+          ulimit -n 100000 || true
+          echo "=== Running hey load test (30s, 200 concurrent) ==="
+          hey -z 30s -c 200 http://127.0.0.1:8080/weather/v1.0/1/us/seattle 2>&1 | tee hey_results.txt
+
       - name: Run JMeter TPS test (random across 50 APIs)
         env:
-          # Increase file descriptors for high concurrency (best-effort on hosted runners)
-          # On hosted runners this may not go very high; for real perf use self-hosted runner.
-          JMETER_HEAP: "-Xms1g -Xmx1g"
+          # Reduce JMeter heap to leave more resources for gateway
+          JMETER_HEAP: "-Xms512m -Xmx512m"
         run: |
           ulimit -n 100000 || true
           export HEAP="${JMETER_HEAP}"
