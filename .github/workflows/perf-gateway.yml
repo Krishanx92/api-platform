@@ -2,8 +2,8 @@ name: Gateway Perf (Create 50 APIs + TPS)
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 20 * * *"   # daily 20:00 UTC (adjust)
+  # schedule:
+    # - cron: "0 20 * * *"   # daily 20:00 UTC (adjust)
 
 jobs:
   perf:
@@ -35,7 +35,7 @@ jobs:
         run: |
           cd gateway
           ls -la
-          docker compose -f docker-compose.yaml up -d
+          docker compose -f docker-compose-perf.yaml up -d
           docker compose ps
 
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          COMPOSE_FILE="gateway/docker-compose.yaml"
+          COMPOSE_FILE="gateway/docker-compose-perf.yaml"
           SVC="gateway-controller"
           URL="http://127.0.0.1:9090/health"
 
@@ -70,28 +70,10 @@ jobs:
           docker compose -f "$COMPOSE_FILE" logs --no-color --tail=200 "$SVC" || true
           exit 1
 
-      - name: Confirm policy-engine binary arch (file /tmp/policy-engine)
-        run: |
-          set -euo pipefail
-          COMPOSE_FILE="gateway/docker-compose.yaml"
-
-          # Get the container id for the policy-engine service (adjust service name if different)
-          CID="$(docker compose -f "$COMPOSE_FILE" ps -q gateway-runtime)"
-          if [[ -z "${CID}" ]]; then
-            echo "❌ Could not find container for service 'gateway-runtime'. Available services:"
-            docker compose -f "$COMPOSE_FILE" config --services
-            exit 1
-          fi
-
-          # Copy binary out of the container and inspect
-          docker cp "${CID}:/app/policy-engine" /tmp/policy-engine
-          ls -la /tmp/policy-engine
-          file /tmp/policy-engine
-
       - name: Debug netty port
         run: |
           docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-          docker compose -f gateway/docker-compose.yaml port netty-backend 8085 || true
+          docker compose -f gateway/docker-compose-perf.yaml port netty 8085 || true
           curl -v http://127.0.0.1:8085/ || true
 
       - name: Create 50 APIs + collect docker stats CSV
@@ -160,7 +142,7 @@ jobs:
           from collections import defaultdict
 
           # ---------- Memory graphs ----------
-          api, router_mem, controller_mem, policy_mem = [], [], [], []
+          api, router_mem, controller_mem = [], [], []
 
           def mib(v): return float(v.replace("MiB","").strip())
 
@@ -173,7 +155,6 @@ jobs:
               api.append(int(row["api_count"]))
               router_mem.append(mib(row["router_mem_used"]))
               controller_mem.append(mib(row["controller_mem_used"]))
-              policy_mem.append(mib(row["policy_mem_used"]))
 
           def plot(x, y, title, out):
             plt.figure(figsize=(9,4))
@@ -190,8 +171,6 @@ jobs:
               "docs/performance/router_memory_vs_api_count.png")
           plot(api, controller_mem, "Controller Memory vs API Count",
               "docs/performance/controller_memory_vs_api_count.png")
-          plot(api, policy_mem, "Policy Engine Memory vs API Count",
-              "docs/performance/policy_memory_vs_api_count.png")
 
           # ---------- TPS over time ----------
           buckets = defaultdict(int)
@@ -225,8 +204,8 @@ jobs:
 
       - name: Commit performance docs
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add docs/performance
           git commit -m "Add gateway performance graphs" || echo "Nothing to commit"
@@ -250,8 +229,7 @@ jobs:
           path: |
             router_memory_vs_api_count.png
             controller_memory_vs_api_count.png
-            policy_memory_vs_api_count.png
-            path: tps_over_time.png
+            tps_over_time.png
 
 
       - name: Upload artifacts (CSV + JTL + logs)
